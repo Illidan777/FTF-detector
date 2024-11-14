@@ -52,7 +52,7 @@ class ModelStageService:
 
     def run(self):
         pass
-        
+
     def write_stage_data(self, df):
         df.to_parquet(f"{self.stages_data_base_path}{self.current_stage_name}_stage_data.parquet", engine='pyarrow')
 
@@ -66,9 +66,8 @@ class ModelStageService:
         # Determine if we need to recreate the step
         if not reload_stage and os.path.exists(stage_data_file):
             # Load from checkpoint
-            with open(stage_data_file, "rb") as file:
-                print(f"Loading {stage_name} from checkpoint.")
-                return pd.read_parquet(stage_data_file, engine='pyarrow')
+            print(f"Loading {stage_name} from checkpoint.")
+            return pd.read_parquet(stage_data_file, engine='pyarrow')
 
         # If checkpoint is not available or recreation is required, run the processing function
         notebook_name = self.stages[stage_name]['notebook']
@@ -82,9 +81,8 @@ class ModelStageService:
         print(f"{notebook_name} completed.")
 
         if os.path.exists(stage_data_file):
-            with open(stage_data_file, "rb") as file:
-                print(f"Loading {stage_name} from checkpoint.")
-                return pd.read_parquet(stage_data_file, engine='pyarrow')
+            print(f"Loading {stage_name} from checkpoint.")
+            return pd.read_parquet(stage_data_file, engine='pyarrow')
         else:
             raise Exception(
                 f'At the {stage_name} stage, the data file was not saved, check that you are saving the data file at this stage')
