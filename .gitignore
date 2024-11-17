@@ -1,3 +1,5 @@
 .venv
-/data/origin
+/data/stages
+/data/snapshots
+/model/saved
 .idea

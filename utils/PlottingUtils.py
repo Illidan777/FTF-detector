@@ -1,4 +1,8 @@
 # Data Visualization
+import math
+import random
+import numpy as np
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import roc_curve, auc, confusion_matrix
@@ -59,7 +63,7 @@ def plot_boxplots_distribution(df, columns):
     plt.show()
 
 
-def plot_barplot_distribution(df, column_name, title='Category Distribution'):
+def plot_barplot_distribution(column, title='Category Distribution'):
     """
     Displays the value distribution for a categorical column.
 
@@ -71,18 +75,17 @@ def plot_barplot_distribution(df, column_name, title='Category Distribution'):
     Returns:
     None
     """
-    print(f'Recorded entries: {df.shape[0]}')
 
     # Count the values in the specified column
-    category_counts = df[column_name].value_counts()
+    category_counts = column.value_counts()
 
     # Create a bar plot for the counts
     plt.figure(figsize=(10, 6))
-    sns.barplot(x=category_counts.index, y=category_counts.values, palette='viridis')
+    sns.barplot(hue=category_counts.index, y=category_counts.values, palette='viridis', legend=False)
 
     # Add title and axis labels
     plt.title(title, fontsize=16, pad=15)
-    plt.xlabel(column_name, fontsize=14)
+    plt.xlabel(column.name, fontsize=14)
     plt.ylabel('Count', fontsize=14)
 
     # Display values on top of each bar
@@ -100,7 +103,6 @@ def plot_barplot_distribution(df, column_name, title='Category Distribution'):
 def plot_correlation_heatmap(df, columns, cmap="coolwarm"):
     corr = df[columns].corr()
 
-    plt.figure(figsize=(1.2 * len(columns), 0.8 * len(columns)))
     sns.heatmap(
         corr,
         cmap=cmap,
@@ -111,75 +113,108 @@ def plot_correlation_heatmap(df, columns, cmap="coolwarm"):
         cbar_kws={"shrink": 0.8}
     )
 
-    plt.title("Correlation Matrix", fontsize=16, pad=12)
-    plt.xticks(rotation=45, ha="right", fontsize=12)
-    plt.yticks(rotation=0, fontsize=12)
-
     plt.tight_layout()
     plt.show()
 
 
-def plot_roc_curve_model(model, X_test, Y_test):
+def plot_roc_curves(models, X_test, Y_test):
     """
-    Plots the ROC curve for the model.
+    Plots the ROC curves for multiple models.
 
     Args:
-        model: The model to plot the ROC curve for.
-        X_test, Y_test: Testing data.
+        models (dict): Dictionary where keys are model names and values are model instances.
+        X_test (array-like): Testing features.
+        Y_test (array-like): True labels for the test set.
     """
-    # Predict probabilities for the positive class
-    y_pred_proba = model.predict_proba(X_test)[:, 1]
+    plt.figure(figsize=(10, 8))
 
-    # Compute ROC curve
-    fpr, tpr, thresholds = roc_curve(Y_test, y_pred_proba)
-    roc_auc = auc(fpr, tpr)
+    # Loop through models to compute and plot each ROC curve
+    for model_dict in models:
+        model_name = model_dict['model_name']
+        model = model_dict['model']
 
-    # Plot the ROC curve
-    plt.figure()
-    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
-    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        if hasattr(model, "predict_proba"):
+            y_pred_proba = model.predict_proba(X_test)[:, 1]
+        elif hasattr(model, "decision_function"):
+            y_pred_proba = model.decision_function(X_test)
+        else:
+            raise ValueError(f"Model {model_name} does not have predict_proba or decision_function.")
+
+        # Compute ROC curve and AUC
+        fpr, tpr, _ = roc_curve(Y_test, y_pred_proba)
+        roc_auc = auc(fpr, tpr)
+
+        # Plot the ROC curve
+        plt.plot(fpr, tpr, lw=2, label=f'{model_name} (AUC = {roc_auc:.2f})')
+
+    # Plot the diagonal (random guess) line
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', label='Random Guess')
+
+    # Configure the plot
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('Receiver Operating Characteristic (ROC) Curve')
+    plt.title('Receiver Operating Characteristic (ROC) Curves')
     plt.legend(loc='lower right')
+    plt.grid(alpha=0.3)
     plt.show()
 
 
-def plot_confusion_matrix_model(model, X_test, Y_test):
+def plot_confusion_matrix_models(models, X_test, Y_test):
     """
-    Plots the confusion matrix for the model.
+    Plots the confusion matrix for multiple models.
 
     Args:
-        model: The model to plot the confusion matrix for.
-        X_test, Y_test: Testing data.
+        models (list): A list of dictionaries, where each dictionary contains:
+                       "model_name" (str): The name of the model,
+                       "model" (object): The trained model.
+        X_test: Testing features.
+        Y_test: Testing labels.
     """
-    pred = model.predict(X_test)
-    cm = confusion_matrix(Y_test, pred)
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
-    plt.title("Confusion Matrix")
-    plt.xlabel("Predicted")
-    plt.ylabel("Actual")
-    plt.show()
+    # Ensure Y_test is numeric
 
+    for model_info in models:
+        model_name = model_info["model_name"]
+        model = model_info["model"]
 
-def plot_feature_importance(model, feature_names):
-    """
-    Plots feature importance for models that have a 'feature_importances_' attribute.
+        # Predict and ensure predictions are numeric
+        pred = model.predict(X_test)
 
-    Args:
-        model: The model to plot feature importance for.
-        feature_names: List of feature names for labeling.
-    """
-    if hasattr(model, 'feature_importances_'):
-        importances = model.feature_importances_
-        indices = importances.argsort()[::-1]
+        # Compute confusion matrix
+        cm = confusion_matrix(Y_test, pred)
 
-        plt.figure(figsize=(10, 6))
-        plt.title("Feature Importances")
-        plt.bar(range(len(indices)), importances[indices], align="center")
-        plt.xticks(range(len(indices)), [feature_names[i] for i in indices], rotation=90)
+        # Plot confusion matrix
+        plt.figure(figsize=(6, 6))
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+        plt.title(f"Confusion Matrix for {model_name}")
+        plt.xlabel("Predicted")
+        plt.ylabel("Actual")
         plt.show()
-    else:
-        print("The selected model does not support feature importance plotting.")
+
+
+def plot_feature_importances(models, feature_names):
+    """
+    Plots feature importances for multiple models provided in a dictionary format.
+
+    Args:
+        models (list): List of dictionaries, each containing:
+                       - "model_name": Name of the model (str).
+                       - "model": The model instance.
+        feature_names (list): List of feature names for labeling.
+    """
+    for model_entry in models:
+        model_name = model_entry["model_name"]
+        model = model_entry["model"]
+
+        if hasattr(model, 'feature_importances_'):
+            importances = model.feature_importances_
+            indices = importances.argsort()[::-1]
+
+            plt.figure(figsize=(10, 6))
+            plt.title(f"Feature Importances: {model_name}")
+            plt.bar(range(len(indices)), importances[indices], align="center")
+            plt.xticks(range(len(indices)), [feature_names[i] for i in indices], rotation=90)
+            plt.show()
+        else:
+            print(f"The model '{model_name}' does not support feature importance plotting.")
