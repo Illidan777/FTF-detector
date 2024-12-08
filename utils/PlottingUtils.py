@@ -1,7 +1,6 @@
 # Data Visualization
 import math
 import random
-import numpy as np
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -9,6 +8,17 @@ from sklearn.metrics import roc_curve, auc, confusion_matrix
 
 
 def plot_pie_distribution(df, categorical_columns, title='Distribution of'):
+    """
+    Plot pie charts for the distribution of values in specified categorical columns of a DataFrame.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the categorical columns to analyze.
+        categorical_columns (list): A list of column names representing categorical columns.
+        title (str, optional): A title prefix for each pie chart. Defaults to 'Distribution of'.
+
+    Returns:
+        None: Displays pie charts for the specified columns.
+    """
     num_columns = len(categorical_columns)
     fig, axes = plt.subplots(nrows=num_columns, ncols=1, figsize=(6, 4 * num_columns))
     for i, col in enumerate(categorical_columns):
@@ -22,6 +32,21 @@ def plot_pie_distribution(df, categorical_columns, title='Distribution of'):
 
 
 def plot_hist_distribution(df, columns):
+    """
+    Plot histograms for the distribution of specified columns in a DataFrame.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the columns to visualize.
+        columns (list): A list of column names to plot histograms for.
+
+    Returns:
+        None: Displays the histograms for the specified columns.
+
+    Notes:
+        - Histograms are plotted with kernel density estimation (KDE) for a smoother visualization.
+        - A random color is assigned to each histogram for visual distinction.
+        - If the number of columns is odd, the last subplot in the grid layout is left blank.
+    """
     num_cols = len(columns)
     num_rows = math.ceil(num_cols / 2)
 
@@ -45,6 +70,22 @@ def plot_hist_distribution(df, columns):
 
 
 def plot_boxplots_distribution(df, columns):
+    """
+    Plot boxplots for the distribution of specified columns in a DataFrame.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the columns to visualize.
+        columns (list): A list of column names to plot boxplots for.
+
+    Returns:
+        None: Displays the boxplots for the specified columns.
+
+    Notes:
+        - Boxplots are useful for identifying outliers and visualizing the spread of data.
+        - Each boxplot is assigned a random color for distinction.
+        - Subplots are arranged in a grid layout with up to 4 columns per row.
+        - If the number of columns is not a multiple of 4, unused axes in the last row are hidden.
+    """
     num_cols = len(columns)
     num_rows = math.ceil(num_cols / 4)
 
@@ -101,6 +142,22 @@ def plot_barplot_distribution(column, title='Category Distribution'):
 
 
 def plot_correlation_heatmap(df, columns, cmap="coolwarm"):
+    """
+    Plot a heatmap to visualize the correlation matrix for specified columns in a DataFrame.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the data.
+        columns (list): A list of column names for which to calculate and display correlations.
+        cmap (str): The colormap to use for the heatmap. Default is "coolwarm".
+
+    Returns:
+        None: Displays the heatmap of correlations for the specified columns.
+
+    Notes:
+        - Correlation values range from -1 (perfect negative correlation) to +1 (perfect positive correlation).
+        - A heatmap visually represents these relationships, helping identify strong correlations or lack thereof.
+        - The diagonal of the heatmap represents the self-correlation (always 1).
+    """
     corr = df[columns].corr()
 
     sns.heatmap(

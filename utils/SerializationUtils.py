@@ -1,5 +1,7 @@
 import os
+
 import joblib
+
 
 def serialize_objects(file_path, *objects, overwrite=False):
     """
@@ -33,7 +35,6 @@ def serialize_objects(file_path, *objects, overwrite=False):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         raise
-
 
 
 def deserialize_objects(file_path):

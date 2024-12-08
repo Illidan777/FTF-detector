@@ -1,16 +1,12 @@
 # Import management
-from importlib import reload
-
 import logging
 import os
 import time
+from importlib import reload
 
 from sklearn import neighbors
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import GridSearchCV
-from sklearn.naive_bayes import GaussianNB
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import (
     accuracy_score,
     roc_auc_score,
@@ -18,11 +14,14 @@ from sklearn.metrics import (
     recall_score,
     f1_score
 )
+from sklearn.model_selection import GridSearchCV
+from sklearn.naive_bayes import GaussianNB
+from sklearn.tree import DecisionTreeClassifier
 
 import utils.SerializationUtils as su
+
 reload(su)
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -77,26 +76,64 @@ base_model_storage_path = '../../model/saved/'
 
 def load_or_tune_and_evaluate_models(model_name, models, X_train, X_test, Y_train, Y_test, re_train=True):
     """
-    Tunes each model in the provided dictionary, selects the best model based on accuracy,
-    and returns the best model with its name and accuracy.
+    Load or train and evaluate multiple machine learning models, selecting the best one based on accuracy.
+    Optionally tunes hyperparameters using GridSearchCV and saves the results for future use.
 
     Args:
-        model_name (str): Name of the model to save/load.
-        models (dict): Dictionary where keys are model names and values are dictionaries
-                       with keys "model" and "params" for each model.
-        X_train, X_test: Training and testing features.
-        Y_train, Y_test: Training and testing labels.
-        re_train (bool): If True, models will be retrained; otherwise, the function attempts to load saved models.
+        model_name (str): The name used for saving and loading model files.
+        models (dict): A dictionary where each key is a model name, and the value is a dictionary with:
+                       - "model" (estimator object): The machine learning model.
+                       - "params" (dict): Hyperparameters for GridSearchCV.
+        X_train (array-like): Training feature dataset.
+        X_test (array-like): Test feature dataset.
+        Y_train (array-like): Training target labels.
+        Y_test (array-like): Test target labels.
+        re_train (bool, optional): If `True`, retrains and tunes the models; if `False`, attempts to load saved models.
 
     Returns:
-        best_estimator: The model with the highest accuracy after tuning.
-        best_estimator_name (str): Name of the best model.
-        best_accuracy (float): Best model's accuracy on the test set.
+        tuple: A tuple containing:
+            - best_estimator (object): The best-performing model.
+            - estimators (list): A list of dictionaries for all evaluated models, each containing:
+              - "model_name" (str): The name of the model.
+              - "model" (object): The trained model.
+              - "prediction" (array-like): The predictions made by the model on the test set.
+
+    Workflow:
+        1. If `re_train` is `False` and the saved models exist, load the best model and all tuned models from disk.
+        2. For each model in the `models` dictionary:
+            - Perform hyperparameter tuning using GridSearchCV with 5-fold cross-validation.
+            - Evaluate the best estimator on the test set using accuracy as the metric.
+            - Keep track of the best-performing model.
+        3. Save the best model and all tuned models to disk for future use.
+        4. Return the best model and all tuned models.
+
+    Raises:
+        Exception: If an error occurs during model tuning, loading, or saving.
+
+    Notes:
+        - Models are saved and loaded using `save_model_pack` and `load_model_pack` functions.
+        - The function logs and skips models that encounter errors during hyperparameter tuning.
+        - Accuracy is used as the evaluation metric to select the best model.
+
+    Example Usage:
+        models = {
+            "RandomForest": {"model": RandomForestClassifier(), "params": {"n_estimators": [10, 50, 100]}},
+            "LogisticRegression": {"model": LogisticRegression(), "params": {"C": [0.1, 1, 10]}}
+        }
+        best_model, estimators = load_or_tune_and_evaluate_models(
+            model_name="classification_models",
+            models=models,
+            X_train=X_train,
+            X_test=X_test,
+            Y_train=Y_train,
+            Y_test=Y_test,
+            re_train=True
+        )
     """
     try:
         if not re_train and os.path.exists(get_model_pack_subfolder_path(model_name)):
             # Load from saved models if re_train is False
-            logger.info(f"Loading {model_name} from saved.")
+            print(f"Loading {model_name} from saved.")
             best_model, all_tuned_models = load_model_pack(model_name)
             return best_model, all_tuned_models
 
@@ -111,20 +148,20 @@ def load_or_tune_and_evaluate_models(model_name, models, X_train, X_test, Y_trai
 
         # Iterate through each model and perform hyperparameter tuning
         for estimator_name, config in models.items():
-            logger.info(f"------------------------------\nStarting tuning for model: {estimator_name}")
+            print(f"------------------------------\nStarting tuning for model: {estimator_name}")
             current_model_tune_start_time = time.time()
 
             try:
                 # Perform GridSearchCV for hyperparameter tuning
                 grid_search = GridSearchCV(config["model"], config["params"], cv=5, scoring='accuracy')
                 grid_search.fit(X_train, Y_train)
-                logger.info(f"Model {estimator_name} has been fitted!")
+                print(f"Model {estimator_name} has been fitted!")
 
                 # Evaluate the model
                 best_estimator = grid_search.best_estimator_
                 pred = best_estimator.predict(X_test)
                 accuracy = accuracy_score(Y_test, pred)
-                logger.info(f"Predictions made for {estimator_name}!")
+                print(f"Predictions made for {estimator_name}!")
 
                 estimators.append({
                     "model_name": estimator_name,
@@ -133,9 +170,9 @@ def load_or_tune_and_evaluate_models(model_name, models, X_train, X_test, Y_trai
                 })
 
                 # Log best parameters and accuracy
-                logger.info(f"Best parameters for {estimator_name}: {grid_search.best_params_}")
-                logger.info(f"Accuracy for {estimator_name}: {accuracy * 100:.2f}%")
-                logger.info(
+                print(f"Best parameters for {estimator_name}: {grid_search.best_params_}")
+                print(f"Accuracy for {estimator_name}: {accuracy * 100:.2f}%")
+                print(
                     f"Model tuning time for {estimator_name}: {time.time() - current_model_tune_start_time:.2f} seconds")
 
                 # Update best model if current model is better
@@ -151,8 +188,8 @@ def load_or_tune_and_evaluate_models(model_name, models, X_train, X_test, Y_trai
         save_model_pack(best_estimator, estimators, model_name)
 
         # Log final results
-        logger.info(f"Best model is {best_estimator_name} with an accuracy of {best_accuracy * 100:.2f}%")
-        logger.info(
+        print(f"Best model is {best_estimator_name} with an accuracy of {best_accuracy * 100:.2f}%")
+        print(
             f"Total hyper-parameter tuning time: {time.time() - all_models_tune_start_time:.2f} seconds for all models")
 
         return best_estimator, estimators
@@ -182,16 +219,47 @@ def evaluate_models(models, y_test):
         model_name = model_info["model_name"]
         pred = model_info["prediction"]
 
-        # Calculate metrics
-        accuracy = accuracy_score(y_test, pred)
-        roc_auc = roc_auc_score(y_test, pred, multi_class='ovr')
-        precision = precision_score(y_test, pred)
-        recall = recall_score(y_test, pred)
-        f1 = f1_score(y_test, pred)
+        # Initialize metrics with 'N/A'
+        accuracy = "N/A"
+        roc_auc = "N/A"
+        precision = "N/A"
+        recall = "N/A"
+        f1 = "N/A"
 
-        # Print results
-        print("{:<20} {:<10.2f} {:<10.2f} {:<10.2f} {:<10.2f} {:<10.2f}".format(
-            model_name, accuracy, roc_auc, precision, recall, f1
+        # Compute metrics if possible
+        try:
+            accuracy = accuracy_score(y_test, pred)
+        except Exception as e:
+            logger.error(f"[{model_name}] Error calculating Accuracy: {e}")
+
+        try:
+            roc_auc = roc_auc_score(y_test, pred, multi_class='ovr')
+        except Exception as e:
+            logger.error(f"[{model_name}] Error calculating ROC AUC: {e}")
+
+        try:
+            precision = precision_score(y_test, pred, average='weighted')
+        except Exception as e:
+            logger.error(f"[{model_name}] Error calculating Precision: {e}")
+
+        try:
+            recall = recall_score(y_test, pred, average='weighted')
+        except Exception as e:
+            logger.error(f"[{model_name}] Error calculating Recall: {e}")
+
+        try:
+            f1 = f1_score(y_test, pred, average='weighted')
+        except Exception as e:
+            logger.error(f"[{model_name}] Error calculating F1 Score: {e}")
+
+        # Display results
+        print("{:<20} {:<10} {:<10} {:<10} {:<10} {:<10}".format(
+            model_name,
+            f"{accuracy:.2f}" if isinstance(accuracy, float) else accuracy,
+            f"{roc_auc:.2f}" if isinstance(roc_auc, float) else roc_auc,
+            f"{precision:.2f}" if isinstance(precision, float) else precision,
+            f"{recall:.2f}" if isinstance(recall, float) else recall,
+            f"{f1:.2f}" if isinstance(f1, float) else f1
         ))
 
 
@@ -222,7 +290,7 @@ def save_model_pack(best_model, all_tuned_models, model_name):
 
         # Create subfolder if it doesn't exist
         os.makedirs(model_pack_subfolder_path, exist_ok=True)
-        logger.info(f"Model storage folder created or already exists: {model_pack_subfolder_path}")
+        print(f"Model storage folder created or already exists: {model_pack_subfolder_path}")
 
         # Define paths for saving the models
         best_model_path = os.path.join(model_pack_subfolder_path, f'{model_name}_best.pkl')
@@ -232,7 +300,7 @@ def save_model_pack(best_model, all_tuned_models, model_name):
         su.serialize_objects(best_model_path, best_model, overwrite=True)
         su.serialize_objects(all_tuned_models_path, all_tuned_models, overwrite=True)
 
-        logger.info(f"Models for {model_name} saved successfully.")
+        print(f"Models for {model_name} saved successfully.")
 
     except Exception as e:
         logger.error(f"Error while saving model pack for {model_name}: {e}")
@@ -260,7 +328,7 @@ def load_model_pack(model_name):
         best_model = su.deserialize_objects(best_model_path)
         all_tuned_models = su.deserialize_objects(all_tuned_models_path)
 
-        logger.info(f'Model "{model_name}" has been successfully loaded from storage.')
+        print(f'Model "{model_name}" has been successfully loaded from storage.')
 
         return best_model, all_tuned_models
 

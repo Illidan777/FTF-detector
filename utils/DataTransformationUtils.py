@@ -80,7 +80,8 @@ def sample_data(df, target_column, sampler=None, sampling_strategy='auto', rando
     target = df[target_column]
     features = df.drop(target_column, axis=1)
 
-    sampled_features, sampled_target = sample_features_target(features, target, sampler, sampling_strategy, random_state, method)
+    sampled_features, sampled_target = sample_features_target(features, target, sampler, sampling_strategy,
+                                                              random_state, method)
 
     # Combine features and target back into a DataFrame
     sampled_df = sampled_features.copy()
@@ -88,7 +89,8 @@ def sample_data(df, target_column, sampler=None, sampling_strategy='auto', rando
     return sampled_df
 
 
-def sample_features_target(features, target, sampler=None, sampling_strategy='auto', random_state=3, method='undersample'):
+def sample_features_target(features, target, sampler=None, sampling_strategy='auto', random_state=3,
+                           method='undersample'):
     # Initialize sampler if not provided
     if sampler is None:
         if method == 'undersample':

@@ -40,9 +40,19 @@ def data_summary(df):
         else:
             print(f"{col_name[i]:<38} {dtype:<10} {distinct_count:<15} {na_count:<10}")
 
+
 def calculate_percentage(part, total):
+    """
+    Calculate the percentage that `part` represents of `total` and print the result.
+
+    Args:
+        part (float or int): The numerator representing the part of the total.
+        total (float or int): The denominator representing the total value.
+
+    Returns:
+        float: The calculated percentage. Returns 0 if `total` is 0 to avoid division by zero.
+    """
     if total == 0:
         return 0  # to avoid division by zero
     percentage = (part / total) * 100
     print(f"Number {part} is {percentage}% of {total}")
-
